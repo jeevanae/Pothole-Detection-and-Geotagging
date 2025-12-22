@@ -100,3 +100,9 @@ Example:
 This project is developed as an **academic mini project** for educational purposes.  
 Detection accuracy depends on camera quality, lighting conditions, and GPS signal availability.
 
+## Repository Structure
+- `training/` : Model training scripts
+- `inference/` : Real-time pothole detection and GPS geo-tagging
+- `requirements.txt` : Python dependencies
+
+
