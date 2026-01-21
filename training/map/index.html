@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pothole Map</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<!-- Fullscreen plugin -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@1.6.0/Control.FullScreen.css"/>
+
+<!-- Google-like font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+html, body {
+    margin: 0;
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+}
+
+#map {
+    height: 100vh;
+    width: 100%;
+}
+
+/* Floating buttons */
+.fab {
+    position: absolute;
+    right: 16px;
+    background: white;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+#locateBtn { bottom: 90px; }
+#themeBtn { bottom: 30px; }
+
+/* Legend */
+.legend {
+    position: absolute;
+    bottom: 20px;
+    left: 16px;
+    background: white;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+.legend span {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.legend i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* Dark mode */
+.dark {
+    filter: invert(1) hue-rotate(180deg);
+}
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<!-- Floating buttons -->
+<div id="locateBtn" class="fab">📍</div>
+<div id="themeBtn" class="fab">🌙</div>
+
+<!-- Legend -->
+<div class="legend">
+    <span><i style="background:red"></i>Normal Pothole</span>
+    <span><i style="background:blue"></i>Water Filled</span>
+    <span><i style="background:orange"></i>Severe</span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.fullscreen@1.6.0/Control.FullScreen.js"></script>
+
+<script>
+/* ---------------- MAP SETUP ---------------- */
+const map = L.map('map', { fullscreenControl: true })
+    .setView([10.527641, 76.214443], 15);
+
+/* Light & Dark tiles */
+const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+
+lightTiles.addTo(map);
+
+/* Scale */
+L.control.scale().addTo(map);
+
+/* Layers */
+const normalLayer = L.layerGroup().addTo(map);
+const waterLayer = L.layerGroup().addTo(map);
+const severeLayer = L.layerGroup().addTo(map);
+
+/* Layer toggle */
+L.control.layers(null, {
+    "Normal": normalLayer,
+    "Water Filled": waterLayer,
+    "Severe": severeLayer
+}).addTo(map);
+
+/* ---------------- DATA LOADING ---------------- */
+function loadPotholes() {
+    fetch('potholes.json?_=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+        normalLayer.clearLayers();
+        waterLayer.clearLayers();
+        severeLayer.clearLayers();
+
+        data.forEach(p => {
+            let marker = L.circleMarker([p.lat, p.lon], {
+                radius: 6,
+                fillOpacity: 0.9
+            }).bindPopup(`
+                <b>Type:</b> ${p.class}<br>
+                <b>Confidence:</b> ${p.confidence}<br>
+                <b>Time:</b> ${p.timestamp}
+            `);
+
+            if (p.class === "pothole") {
+                marker.setStyle({ color: "red" });
+                marker.addTo(normalLayer);
+            }
+            if (p.class === "pothole_water") {
+                marker.setStyle({ color: "blue" });
+                marker.addTo(waterLayer);
+            }
+            if (p.class === "pothole_water_m") {
+                marker.setStyle({ color: "orange" });
+                marker.addTo(severeLayer);
+            }
+        });
+    });
+}
+
+/* Initial + auto refresh */
+loadPotholes();
+setInterval(loadPotholes, 3000);
+
+/* ---------------- CONTROLS ---------------- */
+
+/* Locate me */
+document.getElementById("locateBtn").onclick = () => {
+    map.locate({ setView: true, maxZoom: 18 });
+};
+
+map.on("locationfound", e => {
+    L.circle(e.latlng, {
+        radius: e.accuracy,
+        color: "blue",
+        fillOpacity: 0.2
+    }).addTo(map);
+});
+
+/* Dark mode toggle */
+let dark = false;
+document.getElementById("themeBtn").onclick = () => {
+    if (!dark) {
+        map.removeLayer(lightTiles);
+        darkTiles.addTo(map);
+        dark = true;
+    } else {
+        map.removeLayer(darkTiles);
+        lightTiles.addTo(map);
+        dark = false;
+    }
+};
+</script>
+
+</body>
+</html>
